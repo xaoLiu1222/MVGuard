@@ -24,21 +24,18 @@ class MVComplianceChecker:
     def __init__(self, api_key: str):
         client = SiliconFlowClient(api_key)
         self.checkers = [
-            LyricistChecker(client),   # Rule 1
-            AspectChecker(),            # Rule 2
-            AudioChecker(),             # Rule 3
-            ContentChecker(client),     # Rules 4,5,6,7
-            NamingChecker(client),      # Rule 8
+            LyricistChecker(client),
+            AspectChecker(),
+            AudioChecker(),
+            ContentChecker(client),
+            NamingChecker(client),
         ]
 
     def check_video(self, video_path: str) -> dict:
         """Run all checks on a single video."""
-        results = []
         violated = []
-
         for checker in self.checkers:
             result = checker.check(video_path)
-            results.append(result)
             if not result.passed:
                 violated.append(f"规则{result.rule_id}: {result.reason}")
 
@@ -51,22 +48,17 @@ class MVComplianceChecker:
         )
 
 
-def process_videos(
-    input_path: str,
-    output_dir: str,
-    api_key: str,
-    progress=gr.Progress()
-) -> tuple[str, str]:
+def process_videos(input_path: str, output_dir: str, api_key: str, progress=gr.Progress()):
     """Process videos and return results."""
     if not api_key:
-        return "错误：请输入硅基流动API密钥", ""
+        return "❌ 错误：请输入硅基流动API密钥", [], None
 
     if not input_path:
-        return "错误：请选择视频文件或文件夹", ""
+        return "❌ 错误：请选择视频文件或文件夹", [], None
 
     videos = get_video_files(input_path)
     if not videos:
-        return "错误：未找到支持的视频文件(.ts, .mp4, .mkv)", ""
+        return "❌ 错误：未找到支持的视频文件(.ts, .mp4, .mkv)", [], None
 
     checker = MVComplianceChecker(api_key)
     results = []
@@ -76,10 +68,9 @@ def process_videos(
         result = checker.check_video(str(video))
         results.append(result)
 
-        # Move non-compliant files
         if result["status"] == "不合规" and non_compliant_dir:
             move_file(str(video), str(non_compliant_dir))
-            result["details"] += f" [已移动到 {non_compliant_dir}]"
+            result["details"] += f" [已移动]"
 
     # Generate report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
@@ -91,61 +82,95 @@ def process_videos(
     passed = sum(1 for r in results if r["status"] == "合规")
     failed = total - passed
 
-    summary = f"""检测完成！
-- 总计: {total} 个视频
-- 合规: {passed} 个
-- 不合规: {failed} 个
-- 报告已保存: {report_path}"""
+    summary = f"""✅ 检测完成！
 
-    # Format table
-    table_data = [[r["filename"], r["status"], r["violated_rules"], r["details"]] for r in results]
+📊 统计结果
+• 总计: {total} 个视频
+• 合规: {passed} 个 ✓
+• 不合规: {failed} 个 ✗
+
+📁 报告已保存: {report_path}"""
+
+    # Format table with status icons
+    table_data = []
+    for r in results:
+        status = "✅ 合规" if r["status"] == "合规" else "❌ 不合规"
+        table_data.append([r["filename"], status, r["violated_rules"], r["details"]])
 
     return summary, table_data, report_path
 
 
 def create_ui():
-    """Create Gradio interface."""
-    with gr.Blocks(title="EarGuard - MV合规检测", theme=gr.themes.Soft()) as app:
-        gr.Markdown("# 🎵 EarGuard - 音乐MV合规性检测工具")
-        gr.Markdown("自动检测MV是否符合8条审核规则")
+    """Create Gradio interface with improved UX."""
+
+    custom_css = """
+    .header-title {font-size: 28px; font-weight: 700; color: #1e293b; margin-bottom: 4px;}
+    .header-subtitle {font-size: 14px; color: #64748b;}
+    .rule-item {padding: 10px 12px; border-left: 3px solid #3b82f6; margin: 6px 0; background: #f8fafc; border-radius: 0 6px 6px 0;}
+    .rule-item b {color: #1e40af;}
+    .config-section {background: #ffffff; border-radius: 12px; padding: 16px;}
+    """
+
+    with gr.Blocks(title="MVGuard - MV合规检测") as app:
+
+        # Header
+        gr.HTML('<div class="header-title">🎵 MVGuard - 音乐MV合规性检测工具</div>')
+        gr.HTML('<div class="header-subtitle">专业视频内容审核平台 · 8项智能检测规则 · 支持批量处理</div>')
+        gr.HTML('<hr style="margin: 16px 0; border: none; border-top: 1px solid #e2e8f0;">')
 
         with gr.Row():
+            # 左侧配置区
             with gr.Column(scale=2):
-                api_key = gr.Textbox(
-                    label="硅基流动API密钥",
-                    type="password",
-                    value=SILICONFLOW_API_KEY,
-                    placeholder="sk-xxx"
-                )
-                input_path = gr.Textbox(
-                    label="视频路径",
-                    placeholder="输入视频文件路径或文件夹路径"
-                )
-                output_dir = gr.Textbox(
-                    label="不合规文件移动目录",
-                    placeholder="留空则不移动文件"
-                )
-                btn = gr.Button("🚀 开始检测", variant="primary")
+                with gr.Group():
+                    gr.Markdown("### 📋 检测配置")
+                    api_key = gr.Textbox(
+                        label="🔑 硅基流动API密钥",
+                        type="password",
+                        value=SILICONFLOW_API_KEY,
+                        placeholder="sk-xxxxxxxxxxxxxxxx",
+                        info="用于AI视觉内容检测"
+                    )
+                    input_path = gr.Textbox(
+                        label="📁 视频路径",
+                        placeholder="/home/user/videos 或 /home/user/video.mp4",
+                        info="支持 .ts .mp4 .mkv 格式，可输入文件夹批量处理"
+                    )
+                    output_dir = gr.Textbox(
+                        label="📂 不合规文件移动目录",
+                        placeholder="留空则不移动文件",
+                        info="不合规视频将自动移动到此目录"
+                    )
 
+                btn = gr.Button("🚀 开始检测", variant="primary", size="lg")
+
+            # 右侧规则区
             with gr.Column(scale=1):
-                gr.Markdown("""### 检测规则
-1. 林夕作词作曲 ❌
-2. 竖屏/黑边 ❌
-3. 音量突变 ❌
-4. 画面暴露/导向问题 ❌
-5. 仅风景画背景 ❌
-6. 含广告内容 ❌
-7. 含吸毒画面 ❌
-8. 文件命名不一致 ❌""")
+                gr.Markdown("### 📊 检测规则")
+                gr.HTML("""
+<div class="rule-item">✓ <b>规则1</b> 林夕作词作曲</div>
+<div class="rule-item">✓ <b>规则2</b> 竖屏/黑边视频</div>
+<div class="rule-item">✓ <b>规则3</b> 音量突变异常</div>
+<div class="rule-item">✓ <b>规则4</b> 画面暴露/导向问题</div>
+<div class="rule-item">✓ <b>规则5</b> 仅风景画背景</div>
+<div class="rule-item">✓ <b>规则6</b> 含广告内容</div>
+<div class="rule-item">✓ <b>规则7</b> 含吸毒画面</div>
+<div class="rule-item">✓ <b>规则8</b> 文件命名不一致</div>
+                """)
 
-        summary = gr.Textbox(label="检测结果摘要", lines=5)
+        gr.HTML('<hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">')
+
+        # 结果区
+        gr.Markdown("### 📈 检测结果")
+        summary = gr.Textbox(label="结果摘要", lines=6, show_label=False)
 
         results_table = gr.Dataframe(
             headers=["文件名", "状态", "违规规则", "详情"],
-            label="检测详情"
+            label="详细结果",
+            wrap=True,
+            column_widths=["25%", "12%", "20%", "43%"]
         )
 
-        report_file = gr.File(label="下载CSV报告")
+        report_file = gr.File(label="📥 下载CSV报告")
 
         btn.click(
             fn=process_videos,
