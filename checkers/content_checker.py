@@ -21,19 +21,21 @@ class ContentChecker(BaseChecker):
 
         images = [self.processor.frame_to_base64(f) for f in frames]
 
-        prompt = """请分析这些音乐MV画面，检查以下问题：
+        prompt = """请分析这些音乐MV画面（按顺序编号1-5），检查以下问题：
 1. 画面是否有暴露内容（如过度裸露、色情暗示）
 2. 画面是否有导向问题（如暴力、血腥、恐怖）
 3. 画面是否只有风景（如纯粹的山水、天空、花草，没有人物或其他内容）
-4. 画面是否包含广告（如品牌logo、产品推广、二维码）
+4. 画面是否包含广告（如品牌logo、产品推广、二维码）。注意：音乐平台logo不算广告（如酷狗、QQ音乐、网易云、酷我、咪咕等）
 5. 画面是否有吸毒相关内容（如吸食毒品的动作、毒品道具）
+6. 画面是否模糊不清（整体清晰度很低、画质差）
 
 请按以下格式回答：
 暴露:是/否
 导向问题:是/否
 纯风景:是/否
-广告:是/否
+广告:是/否[如果是，说明：第X张，广告内容描述]
 吸毒:是/否
+模糊:是/否
 
 只需按格式回答，不要解释。"""
 
@@ -47,16 +49,25 @@ class ContentChecker(BaseChecker):
         violations = []
 
         checks = [
-            ("暴露", "是", "画面暴露"),
-            ("导向问题", "是", "导向问题"),
-            ("纯风景", "是", "仅风景画背景"),
-            ("广告", "是", "含广告内容"),
-            ("吸毒", "是", "含吸毒画面"),
+            ("暴露", "画面暴露"),
+            ("导向问题", "导向问题"),
+            ("纯风景", "仅风景画背景"),
+            ("吸毒", "含吸毒画面"),
+            ("模糊", "画面模糊不清"),
         ]
 
-        for keyword, flag, desc in checks:
+        for keyword, desc in checks:
             if f"{keyword}:是" in response or f"{keyword}：是" in response:
                 violations.append(desc)
+
+        # Special handling for ad detection with details
+        import re
+        ad_match = re.search(r"广告[:：]是[,，\[]?(.+?)(?:\n|$)", response)
+        if ad_match:
+            ad_detail = ad_match.group(1).strip().rstrip("]")
+            violations.append(f"含广告内容({ad_detail})" if ad_detail else "含广告内容")
+        elif "广告:是" in response or "广告：是" in response:
+            violations.append("含广告内容")
 
         if violations:
             return self._fail(", ".join(violations))

@@ -6,7 +6,7 @@ from services.siliconflow_api import SiliconFlowClient
 
 
 class NamingChecker(BaseChecker):
-    """Rule 8: Check if filename matches artist-song format and content."""
+    """Rule 8: Check filename-content consistency and song ownership."""
 
     rule_id = 8
     rule_name = "文件命名检测"
@@ -18,32 +18,50 @@ class NamingChecker(BaseChecker):
     def check(self, video_path: str, **kwargs) -> CheckResult:
         filename = Path(video_path).stem
 
-        # Parse expected format: artist-song
-        match = re.match(r"^(.+?)-(.+)$", filename)
+        # Parse format: "artist：song" or "artist-song"
+        match = re.match(r"^(.+?)[：:-](.+)$", filename)
         if not match:
             return self._fail(f"文件名格式不符合'歌手名-歌曲名': {filename}")
 
-        expected_artist, expected_song = match.groups()
+        artist, song = match.groups()
+        artist, song = artist.strip(), song.strip()
 
-        # Extract frames from beginning to verify
-        frames = self.processor.extract_first_frames(video_path, seconds=10, count=2)
+        # Extract frames from beginning
+        frames = self.processor.extract_first_frames(video_path, seconds=10, count=3)
         if not frames:
-            return self._pass("无法提取帧进行验证")
+            return self._check_ownership(artist, song)
 
         images = [self.processor.frame_to_base64(f) for f in frames]
 
-        prompt = f"""请查看这些MV画面，识别其中显示的歌手名和歌曲名。
-文件名显示歌手是"{expected_artist}"，歌曲是"{expected_song}"。
-
-请判断画面中显示的信息是否与文件名一致。
-如果画面中没有显示歌手或歌曲信息，回答"无法判断"。
-如果一致，回答"一致"。
-如果不一致，回答"不一致"并说明实际看到的内容。"""
+        # Step 1: Check if MV shows song title
+        prompt1 = f"""查看这些MV开头画面，是否显示了歌曲名称？
+如果显示了歌名，请回答"歌名：XXX"（XXX为看到的歌名）。
+如果没有显示歌名，回答"无歌名"。"""
 
         try:
-            response = self.client.analyze_images(images, prompt)
-            if "不一致" in response:
-                return self._fail(f"文件命名与内容不一致: {response}")
-            return self._pass()
+            response = self.client.analyze_images(images, prompt1)
+
+            if "无歌名" not in response:
+                # Has song title in MV, check consistency
+                if song.lower() not in response.lower():
+                    return self._fail(f"MV显示歌名与文件名不一致: {response}")
+
+            # Step 2: Check song ownership
+            return self._check_ownership(artist, song)
+
         except Exception as e:
             return self._pass(f"API调用失败: {e}")
+
+    def _check_ownership(self, artist: str, song: str) -> CheckResult:
+        """Check if song belongs to the artist."""
+        prompt = f"""请判断歌曲《{song}》是否为歌手"{artist}"的作品？
+如果是该歌手的作品，回答"是"。
+如果不是或不确定，回答"否"并说明原因。"""
+
+        try:
+            response = self.client.chat(prompt)
+            if response.startswith("否") or "不是" in response:
+                return self._fail(f"《{song}》非{artist}作品: {response}")
+            return self._pass()
+        except Exception as e:
+            return self._pass(f"归属判断失败: {e}")

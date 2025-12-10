@@ -6,7 +6,7 @@ from config import BLACK_BORDER_THRESHOLD, ASPECT_RATIO_VERTICAL
 
 
 class AspectChecker(BaseChecker):
-    """Rule 2: Reject vertical videos or videos with black borders."""
+    """Rule 2: Reject vertical videos or videos with excessive black borders."""
 
     rule_id = 2
     rule_name = "竖屏/黑边检测"
@@ -30,28 +30,54 @@ class AspectChecker(BaseChecker):
         if frame is None:
             return self._pass()
 
-        if self._has_black_borders(frame):
-            return self._fail("检测到黑边")
+        result = self._check_black_borders(frame)
+        if result:
+            return self._fail(result)
 
         return self._pass()
 
-    def _has_black_borders(self, frame: np.ndarray) -> bool:
-        """Check if frame has significant black borders."""
+    def _check_black_borders(self, frame: np.ndarray) -> str | None:
+        """Check black borders: left/right >50% or top/bottom >50% is violation."""
         gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
         h, w = gray.shape
+        threshold = 15
 
-        # Check top/bottom borders
-        top_border = gray[:int(h * 0.1), :]
-        bottom_border = gray[int(h * 0.9):, :]
+        # Check left/right borders (>50% total width = violation)
+        left_cols = 0
+        for i in range(w // 2):
+            if (gray[:, i] < threshold).mean() > 0.9:
+                left_cols += 1
+            else:
+                break
 
-        # Check left/right borders
-        left_border = gray[:, :int(w * 0.1)]
-        right_border = gray[:, int(w * 0.9):]
+        right_cols = 0
+        for i in range(w - 1, w // 2, -1):
+            if (gray[:, i] < threshold).mean() > 0.9:
+                right_cols += 1
+            else:
+                break
 
-        threshold = 15  # Pixel value threshold for "black"
+        lr_ratio = (left_cols + right_cols) / w
+        if lr_ratio > 0.5:
+            return f"左右黑边占比过大 ({lr_ratio:.0%})"
 
-        borders = [top_border, bottom_border, left_border, right_border]
-        black_ratios = [(b < threshold).mean() for b in borders]
+        # Check top/bottom borders (>50% total height = violation)
+        top_rows = 0
+        for i in range(h // 2):
+            if (gray[i, :] < threshold).mean() > 0.9:
+                top_rows += 1
+            else:
+                break
 
-        # If any border is mostly black
-        return any(r > BLACK_BORDER_THRESHOLD for r in black_ratios)
+        bottom_rows = 0
+        for i in range(h - 1, h // 2, -1):
+            if (gray[i, :] < threshold).mean() > 0.9:
+                bottom_rows += 1
+            else:
+                break
+
+        tb_ratio = (top_rows + bottom_rows) / h
+        if tb_ratio > 0.5:
+            return f"上下黑边占比过大 ({tb_ratio:.0%})"
+
+        return None

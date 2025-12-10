@@ -12,7 +12,6 @@ from utils.file_utils import get_video_files, move_file, ensure_dir
 from checkers import (
     LyricistChecker,
     AspectChecker,
-    AudioChecker,
     ContentChecker,
     NamingChecker,
 )
@@ -26,7 +25,6 @@ class MVComplianceChecker:
         self.checkers = [
             LyricistChecker(client),
             AspectChecker(),
-            AudioChecker(),
             ContentChecker(client),
             NamingChecker(client),
         ]
@@ -148,13 +146,13 @@ def create_ui():
                 gr.Markdown("### 📊 检测规则")
                 gr.HTML("""
 <div class="rule-item">✓ <b>规则1</b> 林夕作词作曲</div>
-<div class="rule-item">✓ <b>规则2</b> 竖屏/黑边视频</div>
-<div class="rule-item">✓ <b>规则3</b> 音量突变异常</div>
+<div class="rule-item">✓ <b>规则2</b> 竖屏/黑边>50%</div>
 <div class="rule-item">✓ <b>规则4</b> 画面暴露/导向问题</div>
 <div class="rule-item">✓ <b>规则5</b> 仅风景画背景</div>
-<div class="rule-item">✓ <b>规则6</b> 含广告内容</div>
+<div class="rule-item">✓ <b>规则6</b> 含广告内容(不含音乐平台)</div>
 <div class="rule-item">✓ <b>规则7</b> 含吸毒画面</div>
 <div class="rule-item">✓ <b>规则8</b> 文件命名不一致</div>
+<div class="rule-item">✓ <b>规则9</b> 画面模糊不清</div>
                 """)
 
         gr.HTML('<hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">')
