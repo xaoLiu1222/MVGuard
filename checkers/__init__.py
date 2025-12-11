@@ -6,6 +6,7 @@ from .content_checker import ContentChecker
 from .naming_checker import NamingChecker
 from .duration_checker import DurationChecker
 from .resolution_checker import ResolutionChecker
+from .static_checker import StaticChecker
 
 __all__ = [
     "BaseChecker",
@@ -16,4 +17,5 @@ __all__ = [
     "NamingChecker",
     "DurationChecker",
     "ResolutionChecker",
+    "StaticChecker",
 ]

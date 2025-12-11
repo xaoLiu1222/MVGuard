@@ -16,6 +16,7 @@ from checkers import (
     NamingChecker,
     DurationChecker,
     ResolutionChecker,
+    StaticChecker,
 )
 
 
@@ -31,6 +32,7 @@ class MVComplianceChecker:
             NamingChecker(client),
             DurationChecker(client),
             ResolutionChecker(),
+            StaticChecker(),
         ]
 
     def check_video(self, video_path: str) -> dict:
@@ -167,6 +169,7 @@ def create_ui():
 <div class="rule-item">✓ <b>规则9</b> 非音乐MV内容</div>
 <div class="rule-item">✓ <b>规则10</b> 时长>4分40秒/无歌词</div>
 <div class="rule-item">✓ <b>规则11</b> 清晰度低于超清</div>
+<div class="rule-item">✓ <b>规则12</b> 静态画面/动态壁纸</div>
                 """)
 
         gr.HTML('<hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">')
