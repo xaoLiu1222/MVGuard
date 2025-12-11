@@ -46,56 +46,60 @@ class MVComplianceChecker:
         )
 
 
-def process_videos(input_path: str, output_dir: str, api_key: str, progress=gr.Progress()):
-    """Process videos and return results."""
+def process_videos(input_path: str, compliant_path: str, non_compliant_path: str, api_key: str):
+    """Process videos and yield results in real-time."""
     if not api_key:
-        return "❌ 错误：请输入硅基流动API密钥", [], None
-
+        yield "❌ 错误：请输入硅基流动API密钥", [], None
+        return
     if not input_path:
-        return "❌ 错误：请选择视频文件或文件夹", [], None
+        yield "❌ 错误：请选择视频文件或文件夹", [], None
+        return
 
     videos = get_video_files(input_path)
     if not videos:
-        return "❌ 错误：未找到支持的视频文件(.ts, .mp4, .mkv)", [], None
+        yield "❌ 错误：未找到支持的视频文件(.ts, .mp4, .mkv)", [], None
+        return
+
+    # Setup directories (default to source dir if not specified)
+    from pathlib import Path
+    video_parent = Path(videos[0]).parent
+    comp_dir = ensure_dir(compliant_path) if compliant_path else ensure_dir(video_parent / "合规")
+    non_comp_dir = ensure_dir(non_compliant_path) if non_compliant_path else ensure_dir(video_parent / "不合规")
 
     checker = MVComplianceChecker(api_key)
     results = []
-    non_compliant_dir = ensure_dir(output_dir) if output_dir else None
+    total = len(videos)
 
-    for video in progress.tqdm(videos, desc="检测中"):
+    for idx, video in enumerate(videos, 1):
         result = checker.check_video(str(video))
         results.append(result)
 
-        if result["status"] == "不合规" and non_compliant_dir:
-            move_file(str(video), str(non_compliant_dir))
-            result["details"] += f" [已移动]"
+        # Move file based on result
+        if result["status"] == "合规":
+            move_file(str(video), str(comp_dir))
+        else:
+            move_file(str(video), str(non_comp_dir))
+        result["details"] += " [已移动]"
 
-    # Generate report
+        # Build real-time summary
+        passed = sum(1 for r in results if r["status"] == "合规")
+        failed = len(results) - passed
+        summary = f"⏳ 检测进度: {idx}/{total}\n\n📊 当前统计\n• 合规: {passed} 个 ✓\n• 不合规: {failed} 个 ✗"
+
+        # Build table
+        table_data = [[r["filename"], "✅ 合规" if r["status"] == "合规" else "❌ 不合规", r["violated_rules"], r["details"]] for r in results]
+
+        yield summary, table_data, None
+
+    # Generate final report
     timestamp = datetime.now().strftime("%Y%m%d_%H%M%S")
     report_path = f"检测报告_{timestamp}.csv"
     ReportGenerator.generate_csv(results, report_path)
 
-    # Format summary
-    total = len(results)
     passed = sum(1 for r in results if r["status"] == "合规")
-    failed = total - passed
+    final_summary = f"✅ 检测完成！\n\n📊 统计结果\n• 总计: {total} 个视频\n• 合规: {passed} 个 ✓\n• 不合规: {total - passed} 个 ✗\n\n📁 报告已保存: {report_path}"
 
-    summary = f"""✅ 检测完成！
-
-📊 统计结果
-• 总计: {total} 个视频
-• 合规: {passed} 个 ✓
-• 不合规: {failed} 个 ✗
-
-📁 报告已保存: {report_path}"""
-
-    # Format table with status icons
-    table_data = []
-    for r in results:
-        status = "✅ 合规" if r["status"] == "合规" else "❌ 不合规"
-        table_data.append([r["filename"], status, r["violated_rules"], r["details"]])
-
-    return summary, table_data, report_path
+    yield final_summary, table_data, report_path
 
 
 def create_ui():
@@ -133,11 +137,15 @@ def create_ui():
                         placeholder="/home/user/videos 或 /home/user/video.mp4",
                         info="支持 .ts .mp4 .mkv 格式，可输入文件夹批量处理"
                     )
-                    output_dir = gr.Textbox(
-                        label="📂 不合规文件移动目录",
-                        placeholder="留空则不移动文件",
-                        info="不合规视频将自动移动到此目录"
-                    )
+                    with gr.Row():
+                        compliant_dir = gr.Textbox(
+                            label="📂 合规文件目录",
+                            placeholder="留空则在源目录创建'合规'文件夹",
+                        )
+                        non_compliant_dir = gr.Textbox(
+                            label="📂 不合规文件目录",
+                            placeholder="留空则在源目录创建'不合规'文件夹",
+                        )
 
                 btn = gr.Button("🚀 开始检测", variant="primary", size="lg")
 
@@ -172,7 +180,7 @@ def create_ui():
 
         btn.click(
             fn=process_videos,
-            inputs=[input_path, output_dir, api_key],
+            inputs=[input_path, compliant_dir, non_compliant_dir, api_key],
             outputs=[summary, results_table, report_file]
         )
 
