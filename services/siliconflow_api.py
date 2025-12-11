@@ -28,7 +28,8 @@ class SiliconFlowClient:
                     ]
                 }
             ],
-            "max_tokens": 500
+            "max_tokens": 500,
+            "temperature": 0
         }
 
         resp = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60)
@@ -50,7 +51,8 @@ class SiliconFlowClient:
         payload = {
             "model": self.model,
             "messages": [{"role": "user", "content": content}],
-            "max_tokens": 500
+            "max_tokens": 500,
+            "temperature": 0
         }
 
         resp = requests.post(f"{self.base_url}/chat/completions", headers=headers, json=payload, timeout=60)
