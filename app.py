@@ -14,6 +14,8 @@ from checkers import (
     AspectChecker,
     ContentChecker,
     NamingChecker,
+    DurationChecker,
+    ResolutionChecker,
 )
 
 
@@ -27,6 +29,8 @@ class MVComplianceChecker:
             AspectChecker(),
             ContentChecker(client),
             NamingChecker(client),
+            DurationChecker(client),
+            ResolutionChecker(),
         ]
 
     def check_video(self, video_path: str) -> dict:
@@ -160,7 +164,9 @@ def create_ui():
 <div class="rule-item">✓ <b>规则6</b> 含广告内容(不含音乐平台)</div>
 <div class="rule-item">✓ <b>规则7</b> 含吸毒画面</div>
 <div class="rule-item">✓ <b>规则8</b> 文件命名不一致</div>
-<div class="rule-item">✓ <b>规则9</b> 画面模糊不清</div>
+<div class="rule-item">✓ <b>规则9</b> 非音乐MV内容</div>
+<div class="rule-item">✓ <b>规则10</b> 时长>4分40秒/无歌词</div>
+<div class="rule-item">✓ <b>规则11</b> 清晰度低于超清</div>
                 """)
 
         gr.HTML('<hr style="margin: 20px 0; border: none; border-top: 1px solid #e2e8f0;">')
