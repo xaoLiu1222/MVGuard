@@ -17,8 +17,8 @@ class VideoProcessor:
             "ffprobe", "-v", "quiet", "-print_format", "json",
             "-show_format", "-show_streams", video_path
         ]
-        result = subprocess.run(cmd, capture_output=True, text=True)
-        if result.returncode != 0:
+        result = subprocess.run(cmd, capture_output=True, encoding='utf-8', errors='ignore')
+        if result.returncode != 0 or not result.stdout:
             return {}
 
         data = json.loads(result.stdout)
