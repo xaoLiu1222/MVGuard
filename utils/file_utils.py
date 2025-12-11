@@ -27,8 +27,11 @@ def get_video_files(path: str) -> list[Path]:
 
 def move_file(src: str, dest_dir: str) -> str:
     """Move file to destination directory."""
-    ensure_dir(dest_dir)
     src_path = Path(src)
+    if not src_path.exists():
+        return ""
+
+    ensure_dir(dest_dir)
     dest_path = Path(dest_dir) / src_path.name
 
     # Handle duplicate names
@@ -37,5 +40,5 @@ def move_file(src: str, dest_dir: str) -> str:
         dest_path = Path(dest_dir) / f"{src_path.stem}_{counter}{src_path.suffix}"
         counter += 1
 
-    shutil.move(str(src_path), str(dest_path))
+    shutil.move(src_path, dest_path)
     return str(dest_path)
