@@ -4,7 +4,12 @@ import os
 # SiliconFlow API
 SILICONFLOW_API_KEY = os.getenv("SILICONFLOW_API_KEY", "")
 SILICONFLOW_BASE_URL = "https://api.siliconflow.cn/v1"
-SILICONFLOW_MODEL = "Qwen/Qwen3-VL-235B-A22B-Instruct"
+SILICONFLOW_MODEL = "Qwen/Qwen2.5-VL-72B-Instruct"
+SILICONFLOW_VL_MODELS = [
+    "Qwen/Qwen2.5-VL-72B-Instruct",
+    "Pro/Qwen/Qwen2.5-VL-7B-Instruct",
+    "Qwen/Qwen2-VL-72B-Instruct",
+]
 
 # Video Processing
 SUPPORTED_FORMATS = [".ts", ".mp4", ".mkv"]

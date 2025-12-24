@@ -5,10 +5,10 @@ from config import SILICONFLOW_API_KEY, SILICONFLOW_BASE_URL, SILICONFLOW_MODEL
 class SiliconFlowClient:
     """SiliconFlow API client for vision model."""
 
-    def __init__(self, api_key: str = None):
+    def __init__(self, api_key: str = None, model: str = None):
         self.api_key = api_key or SILICONFLOW_API_KEY
         self.base_url = SILICONFLOW_BASE_URL
-        self.model = SILICONFLOW_MODEL
+        self.model = model or SILICONFLOW_MODEL
 
     def analyze_image(self, image_base64: str, prompt: str) -> str:
         """Analyze image with vision model."""

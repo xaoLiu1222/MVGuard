@@ -5,7 +5,7 @@ Usage: python app.py
 import gradio as gr
 from datetime import datetime
 
-from config import SILICONFLOW_API_KEY
+from config import SILICONFLOW_API_KEY, SILICONFLOW_VL_MODELS
 from services.siliconflow_api import SiliconFlowClient
 from services.report_generator import ReportGenerator
 from utils.file_utils import get_video_files, move_file, ensure_dir
@@ -23,8 +23,8 @@ from checkers import (
 class MVComplianceChecker:
     """Main checker that runs all rules."""
 
-    def __init__(self, api_key: str):
-        client = SiliconFlowClient(api_key)
+    def __init__(self, api_key: str, model: str = None):
+        client = SiliconFlowClient(api_key, model)
         self.checkers = [
             LyricistChecker(client),
             AspectChecker(),
@@ -52,7 +52,7 @@ class MVComplianceChecker:
         )
 
 
-def process_videos(input_path: str, compliant_path: str, non_compliant_path: str, api_key: str):
+def process_videos(input_path: str, compliant_path: str, non_compliant_path: str, api_key: str, model: str):
     """Process videos and yield results in real-time."""
     if not api_key:
         yield "❌ 错误：请输入硅基流动API密钥", [], None
@@ -72,7 +72,7 @@ def process_videos(input_path: str, compliant_path: str, non_compliant_path: str
     comp_dir = ensure_dir(compliant_path) if compliant_path else ensure_dir(video_parent / "合规")
     non_comp_dir = ensure_dir(non_compliant_path) if non_compliant_path else ensure_dir(video_parent / "不合规")
 
-    checker = MVComplianceChecker(api_key)
+    checker = MVComplianceChecker(api_key, model)
     results = []
     total = len(videos)
 
@@ -138,6 +138,13 @@ def create_ui():
                         placeholder="sk-xxxxxxxxxxxxxxxx",
                         info="用于AI视觉内容检测"
                     )
+                    model_select = gr.Dropdown(
+                        label="🤖 视觉模型",
+                        choices=SILICONFLOW_VL_MODELS,
+                        value=SILICONFLOW_VL_MODELS[0],
+                        allow_custom_value=True,
+                        info="选择或输入自定义模型"
+                    )
                     input_path = gr.Textbox(
                         label="📁 视频路径",
                         placeholder="/home/user/videos 或 /home/user/video.mp4",
@@ -189,7 +196,7 @@ def create_ui():
 
         btn.click(
             fn=process_videos,
-            inputs=[input_path, compliant_dir, non_compliant_dir, api_key],
+            inputs=[input_path, compliant_dir, non_compliant_dir, api_key, model_select],
             outputs=[summary, results_table, report_file]
         )
 
