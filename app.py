@@ -9,6 +9,7 @@ from config import SILICONFLOW_API_KEY, SILICONFLOW_VL_MODELS
 from services.siliconflow_api import SiliconFlowClient
 from services.report_generator import ReportGenerator
 from utils.file_utils import get_video_files, move_file, ensure_dir
+from utils.profiles import load_profiles, save_profile, delete_profile, get_profile_choices
 from checkers import (
     LyricistChecker,
     AspectChecker,
@@ -119,7 +120,30 @@ def create_ui():
     .config-section {background: #ffffff; border-radius: 12px; padding: 16px;}
     """
 
-    with gr.Blocks(title="MVGuard - MV合规检测") as app:
+    def on_profile_select(profile_name):
+        """Load selected profile."""
+        if not profile_name:
+            return SILICONFLOW_API_KEY, SILICONFLOW_VL_MODELS[0]
+        for p in load_profiles():
+            if p["name"] == profile_name:
+                return p["api_key"], p["model"]
+        return SILICONFLOW_API_KEY, SILICONFLOW_VL_MODELS[0]
+
+    def on_save_profile(name, api_key, model):
+        """Save current config as profile."""
+        if not name:
+            return gr.update(), "❌ 请输入配置名称"
+        save_profile(name, api_key, model)
+        return gr.update(choices=get_profile_choices(), value=name), f"✅ 已保存配置: {name}"
+
+    def on_delete_profile(name):
+        """Delete selected profile."""
+        if not name:
+            return gr.update(), "❌ 请选择要删除的配置"
+        delete_profile(name)
+        return gr.update(choices=get_profile_choices(), value=None), f"✅ 已删除配置: {name}"
+
+    with gr.Blocks(title="MVGuard - MV合规检测", css=custom_css) as app:
 
         # Header
         gr.HTML('<div class="header-title">🎵 MVGuard - 音乐MV合规性检测工具</div>')
@@ -131,6 +155,19 @@ def create_ui():
             with gr.Column(scale=2):
                 with gr.Group():
                     gr.Markdown("### 📋 检测配置")
+                    with gr.Row():
+                        profile_select = gr.Dropdown(
+                            label="📂 已保存配置",
+                            choices=get_profile_choices(),
+                            value=None,
+                            allow_custom_value=False,
+                            scale=2
+                        )
+                        profile_name = gr.Textbox(label="配置名称", placeholder="输入名称保存当前配置", scale=2)
+                        save_btn = gr.Button("💾 保存", scale=1)
+                        del_btn = gr.Button("🗑️ 删除", scale=1)
+                    profile_status = gr.Textbox(label="", visible=True, interactive=False, max_lines=1)
+
                     api_key = gr.Textbox(
                         label="🔑 硅基流动API密钥",
                         type="password",
@@ -193,6 +230,11 @@ def create_ui():
         )
 
         report_file = gr.File(label="📥 下载CSV报告")
+
+        # Event handlers
+        profile_select.change(on_profile_select, inputs=[profile_select], outputs=[api_key, model_select])
+        save_btn.click(on_save_profile, inputs=[profile_name, api_key, model_select], outputs=[profile_select, profile_status])
+        del_btn.click(on_delete_profile, inputs=[profile_select], outputs=[profile_select, profile_status])
 
         btn.click(
             fn=process_videos,
