@@ -19,7 +19,9 @@ class ContentChecker(BaseChecker):
         if not frames:
             return self._pass("无法提取帧")
 
-        prompt = """请分析这些音乐MV画面，检查以下问题：
+        images = [self.processor.frame_to_base64(f) for f in frames]
+
+        prompt = """请分析这些音乐MV画面（按顺序编号1-5），检查以下问题：
 1. 画面是否有暴露内容（如过度裸露、色情暗示）
 2. 画面是否有导向问题（如暴力、血腥、恐怖）
 3. 画面是否只有风景（如纯粹的山水、天空、花草，没有人物或其他内容）
@@ -31,25 +33,17 @@ class ContentChecker(BaseChecker):
 暴露:是/否
 导向问题:是/否
 纯风景:是/否
-广告:是/否[如果是，说明广告内容]
+广告:是/否[如果是，说明：第X张，广告内容描述]
 吸毒:是/否
 非MV:是/否
 
 只需按格式回答，不要解释。"""
 
-        # 分批检测，违规即返回（节省token）
-        batch_size = 2
-        for i in range(0, len(frames), batch_size):
-            batch = frames[i:i + batch_size]
-            images = [self.processor.frame_to_base64(f) for f in batch]
-            try:
-                response = self.client.analyze_images(images, prompt)
-                result = self._parse_response(response)
-                if not result.passed:
-                    return result
-            except Exception as e:
-                continue
-        return self._pass()
+        try:
+            response = self.client.analyze_images(images, prompt)
+            return self._parse_response(response)
+        except Exception as e:
+            return self._pass(f"API调用失败: {e}")
 
     def _parse_response(self, response: str) -> CheckResult:
         violations = []
