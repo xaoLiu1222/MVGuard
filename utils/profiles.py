@@ -15,18 +15,15 @@ def load_profiles() -> list[dict]:
         return []
 
 
-def save_profile(name: str, api_key: str, model: str) -> bool:
-    """Save a new profile."""
+def save_profile(api_key: str, model: str) -> bool:
+    """Save a new profile with format 'model:key'."""
     profiles = load_profiles()
-    # Update existing or add new
+    name = f"{model}:{api_key[:8]}..."
+    # Check if same model+key exists
     for p in profiles:
-        if p["name"] == name:
-            p["api_key"] = api_key
-            p["model"] = model
-            break
-    else:
-        profiles.append({"name": name, "api_key": api_key, "model": model})
-
+        if p["api_key"] == api_key and p["model"] == model:
+            return True  # Already exists
+    profiles.append({"name": name, "api_key": api_key, "model": model})
     PROFILES_PATH.parent.mkdir(parents=True, exist_ok=True)
     PROFILES_PATH.write_text(json.dumps(profiles, ensure_ascii=False, indent=2))
     return True

@@ -129,19 +129,19 @@ def create_ui():
                 return p["api_key"], p["model"]
         return SILICONFLOW_API_KEY, SILICONFLOW_VL_MODELS[0]
 
-    def on_save_profile(name, api_key, model):
+    def on_save_profile(api_key, model):
         """Save current config as profile."""
-        if not name:
-            return gr.update(), "❌ 请输入配置名称"
-        save_profile(name, api_key, model)
-        return gr.update(choices=get_profile_choices(), value=name), f"✅ 已保存配置: {name}"
+        if not api_key or not model:
+            return gr.update(), "❌ 请填写API密钥和模型"
+        save_profile(api_key, model)
+        return gr.update(choices=get_profile_choices()), f"✅ 已保存: {model}:{api_key[:8]}..."
 
     def on_delete_profile(name):
         """Delete selected profile."""
         if not name:
             return gr.update(), "❌ 请选择要删除的配置"
         delete_profile(name)
-        return gr.update(choices=get_profile_choices(), value=None), f"✅ 已删除配置: {name}"
+        return gr.update(choices=get_profile_choices(), value=None), f"✅ 已删除"
 
     with gr.Blocks(title="MVGuard - MV合规检测", css=custom_css) as app:
 
@@ -155,19 +155,6 @@ def create_ui():
             with gr.Column(scale=2):
                 with gr.Group():
                     gr.Markdown("### 📋 检测配置")
-                    with gr.Row():
-                        profile_select = gr.Dropdown(
-                            label="📂 已保存配置",
-                            choices=get_profile_choices(),
-                            value=None,
-                            allow_custom_value=False,
-                            scale=2
-                        )
-                        profile_name = gr.Textbox(label="配置名称", placeholder="输入名称保存当前配置", scale=2)
-                        save_btn = gr.Button("💾 保存", scale=1)
-                        del_btn = gr.Button("🗑️ 删除", scale=1)
-                    profile_status = gr.Textbox(label="", visible=True, interactive=False, max_lines=1)
-
                     api_key = gr.Textbox(
                         label="🔑 硅基流动API密钥",
                         type="password",
@@ -182,6 +169,18 @@ def create_ui():
                         allow_custom_value=True,
                         info="选择或输入自定义模型"
                     )
+                    with gr.Accordion("📂 配置管理", open=False):
+                        profile_select = gr.Dropdown(
+                            label="已保存配置",
+                            choices=get_profile_choices(),
+                            value=None,
+                            allow_custom_value=False,
+                        )
+                        with gr.Row():
+                            save_btn = gr.Button("💾 保存当前配置", size="sm")
+                            del_btn = gr.Button("🗑️ 删除选中", size="sm")
+                        profile_status = gr.Textbox(show_label=False, interactive=False, max_lines=1)
+
                     input_path = gr.Textbox(
                         label="📁 视频路径",
                         placeholder="/home/user/videos 或 /home/user/video.mp4",
@@ -233,7 +232,7 @@ def create_ui():
 
         # Event handlers
         profile_select.change(on_profile_select, inputs=[profile_select], outputs=[api_key, model_select])
-        save_btn.click(on_save_profile, inputs=[profile_name, api_key, model_select], outputs=[profile_select, profile_status])
+        save_btn.click(on_save_profile, inputs=[api_key, model_select], outputs=[profile_select, profile_status])
         del_btn.click(on_delete_profile, inputs=[profile_select], outputs=[profile_select, profile_status])
 
         btn.click(
