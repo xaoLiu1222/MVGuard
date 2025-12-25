@@ -21,7 +21,7 @@ def get_video_files(path: str) -> list[Path]:
         for fmt in SUPPORTED_FORMATS:
             files.extend(p.glob(f"*{fmt}"))
             files.extend(p.glob(f"*{fmt.upper()}"))
-        return sorted(files)
+        return sorted(set(files))  # 去重，避免大小写不敏感文件系统重复匹配
     return []
 
 
