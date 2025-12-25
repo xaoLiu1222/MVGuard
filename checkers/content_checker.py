@@ -41,9 +41,38 @@ class ContentChecker(BaseChecker):
 
         try:
             response = self.client.analyze_images(images, prompt)
-            return self._parse_response(response)
+            result = self._parse_response(response)
+
+            # 二次确认：首次检测违规时，换角度再确认一次
+            if not result.passed:
+                confirm_result = self._confirm_violation(images, result.reason)
+                if confirm_result.passed:
+                    return self._pass()  # 二次确认通过，判定为合规
+                return confirm_result
+            return result
         except Exception as e:
             return self._pass(f"API调用失败: {e}")
+
+    def _confirm_violation(self, images: list[str], violation: str) -> CheckResult:
+        """二次确认违规内容"""
+        prompt = f"""之前检测认为这些音乐MV画面存在问题："{violation}"
+
+请重新仔细审视这些画面，判断上述问题是否真的存在。
+注意：
+- 正常的舞蹈动作、演唱表演不算暴露
+- 艺术化的视觉效果不算导向问题
+- 有歌手/演员出现的风景画面不算"纯风景"
+- 音乐平台水印(酷狗、QQ音乐、网易云等)不算广告
+
+请回答：上述问题是否确实存在？只回答"确认"或"误报"。"""
+
+        try:
+            response = self.client.analyze_images(images, prompt)
+            if "误报" in response:
+                return self._pass()
+            return self._fail(violation)
+        except:
+            return self._fail(violation)
 
     def _parse_response(self, response: str) -> CheckResult:
         violations = []
